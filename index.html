@@ -104,6 +104,7 @@
   });
 
   function enhance(html) {
+    html = html.replace(' Lab</h1>', '</h1>');
     html = html.replace('</style>', 'button{background:#e7edf6;color:#182334}</style>');
     const isTree = html.includes('aria-label="Red-black tree"') || html.includes('aria-label="Binary heap"');
     if (isTree) html = html.replace('</style>', '#canvas svg{transform:scale(.7);transform-origin:top center}</style>');
