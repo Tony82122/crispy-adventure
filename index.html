@@ -115,11 +115,12 @@
     }
     if (isAsymptotic) {
       html = html.replace(/<textarea id="expressions"[^>]*>[\s\S]*?<\/textarea>/, '<textarea id="expressions" spellcheck="false" placeholder="Enter functions or recurrences in LaTeX"></textarea>');
-      html = html.replace(/<button id="examples"[^>]*>[\s\S]*?<\/button>/, '');
-      html = html.replace(/<p class="small">Examples:[\s\S]*?<\/p>/, '<p class="small">LaTeX input supports fractions, square roots, logarithms, powers, and multiplication. Enter one function or recurrence per line.</p>');
+      html = html.replace(/<button id="(?:analyse|examples)"[^>]*>[\s\S]*?<\/button>/g, '');
+      html = html.replace(/<p class="small">Examples:[\s\S]*?<\/p>/, '<p class="small">Results update as you type. LaTeX input supports fractions, square roots, logarithms, powers, and multiplication. Enter one function or recurrence per line.</p>');
       html = html.replace('function normalize(s){return s.replace(', `function normalize(s){s=(${latexToPlain.toString()})(s);return s.replace(`);
-      html = html.replace(/\$\('examples'\)\.onclick=()=>\{[\s\S]*?\};/, '');
-      html = html.replace(';analyse();\n' + '<' + '/script>', ';\n' + '<' + '/script>');
+      html = html.replace('let row=document.createElement(\'tr\'),cell=document.createElement(\'td\');cell.textContent=line;row.append(cell);try{let result=solve(line)', 'let row=document.createElement(\'tr\'),cell=document.createElement(\'td\'),displayLine=normalize(line);cell.textContent=displayLine;row.append(cell);try{let result=solve(line)');
+      html = html.replace('title.textContent=`${index+1}. ${line} → O(${bound})`', 'title.textContent=`${index+1}. ${displayLine} → O(${bound})`');
+      html = html.replace(/\$\('analyse'\)\.onclick=analyse;\$\('examples'\)\.onclick=\(\)=>\{[\s\S]*?\};analyse\(\);/, '$("expressions").addEventListener("input",analyse);');
     }
     const setup = `<script>(function(){function wrap(buttonId,inputId,shouldClear){const button=document.getElementById(buttonId),input=document.getElementById(inputId);if(!button||!input||typeof button.onclick!=='function')return;const original=button.onclick;button.onclick=function(event){const clear=shouldClear(input.value);original.call(this,event);if(clear)input.value='';};}const number=value=>value.trim()!==''&&Number.isSafeInteger(Number(value));if(document.getElementById('tree'))for(const id of ['insert','remove','find'])wrap(id,'value',number);for(const id of ['radix','bucket']){const start=document.getElementById('start');if(start){const original=start.onclick,input=document.getElementById('values'),error=document.getElementById('error');start.onclick=function(event){const entered=input.value.trim()!=='';original.call(this,event);if(entered&&!error.textContent)input.value='';};}}})();` + '<' + '/script>';
     return html.includes('</body>') ? html.replace('</body>', setup + '</body>') : html.replace('</html>', setup + '</html>');
