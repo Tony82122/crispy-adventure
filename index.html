@@ -106,14 +106,81 @@
   function enhance(html) {
     html = html.replace(' Lab</h1>', '</h1>');
     html = html.replace('</style>', 'button{background:#e7edf6;color:#182334}</style>');
+    const isAsymptotic = html.includes('id="expressions"');
     const isTree = html.includes('aria-label="Red-black tree"') || html.includes('aria-label="Binary heap"');
     if (isTree) html = html.replace('</style>', '#canvas svg{transform:scale(.7);transform-origin:top center}</style>');
     if (html.includes('aria-label="Binary heap"')) {
       html = html.replace('insert(value){this.a.push(value);', "insert(value){if(this.a.includes(value)){this.snapshot(value+' already exists; duplicates are ignored.');return;}this.a.push(value);");
       html = html.replace('Duplicates are allowed. Delete value removes the first matching value in array order.', 'Duplicate values are ignored. Delete value removes the matching value from the heap.');
     }
-    const setup = `<script>(function(){function wrap(buttonId,inputId,shouldClear){const button=document.getElementById(buttonId),input=document.getElementById(inputId);if(!button||!input||typeof button.onclick!=='function')return;const original=button.onclick;button.onclick=function(event){const clear=shouldClear(input.value);original.call(this,event);if(clear)input.value='';};}const number=value=>value.trim()!==''&&Number.isSafeInteger(Number(value));if(document.getElementById('tree'))for(const id of ['insert','remove','find'])wrap(id,'value',number);for(const id of ['radix','bucket']){const start=document.getElementById('start');if(start){const original=start.onclick,input=document.getElementById('values'),error=document.getElementById('error');start.onclick=function(event){const entered=input.value.trim()!=='';original.call(this,event);if(entered&&!error.textContent)input.value='';};}}const analyse=document.getElementById('analyse'),expressions=document.getElementById('expressions');if(analyse&&expressions){const original=analyse.onclick;analyse.onclick=function(event){const clear=expressions.value.trim()!==''&&expressions.value.split(String.fromCharCode(10)).filter(line=>line.trim()).length<=50;original.call(this,event);if(clear)expressions.value='';};}})();` + '<' + '/script>';
+    if (isAsymptotic) {
+      html = html.replace(/<textarea id="expressions"[^>]*>[\s\S]*?<\/textarea>/, '<textarea id="expressions" spellcheck="false" placeholder="Enter functions or recurrences in LaTeX"></textarea>');
+      html = html.replace(/<button id="examples"[^>]*>[\s\S]*?<\/button>/, '');
+      html = html.replace(/<p class="small">Examples:[\s\S]*?<\/p>/, '<p class="small">LaTeX input supports fractions, square roots, logarithms, powers, and multiplication. Enter one function or recurrence per line.</p>');
+      html = html.replace('function normalize(s){return s.replace(', `function normalize(s){s=(${latexToPlain.toString()})(s);return s.replace(`);
+      html = html.replace(/\$\('examples'\)\.onclick=()=>\{[\s\S]*?\};/, '');
+      html = html.replace(';analyse();\n' + '<' + '/script>', ';\n' + '<' + '/script>');
+    }
+    const setup = `<script>(function(){function wrap(buttonId,inputId,shouldClear){const button=document.getElementById(buttonId),input=document.getElementById(inputId);if(!button||!input||typeof button.onclick!=='function')return;const original=button.onclick;button.onclick=function(event){const clear=shouldClear(input.value);original.call(this,event);if(clear)input.value='';};}const number=value=>value.trim()!==''&&Number.isSafeInteger(Number(value));if(document.getElementById('tree'))for(const id of ['insert','remove','find'])wrap(id,'value',number);for(const id of ['radix','bucket']){const start=document.getElementById('start');if(start){const original=start.onclick,input=document.getElementById('values'),error=document.getElementById('error');start.onclick=function(event){const entered=input.value.trim()!=='';original.call(this,event);if(entered&&!error.textContent)input.value='';};}}})();` + '<' + '/script>';
     return html.includes('</body>') ? html.replace('</body>', setup + '</body>') : html.replace('</html>', setup + '</html>');
+  }
+
+  function latexToPlain(source) {
+    const input = source.replace(/\\left|\\right/g, '').replace(/\\(?:,|;|!|quad|qquad)/g, ' ');
+    const group = (text, start) => {
+      while (/\s/.test(text[start] || '')) start++;
+      if (text[start] !== '{') return null;
+      let depth = 1;
+      for (let end = start + 1; end < text.length; end++) {
+        if (text[end] === '{') depth++;
+        if (text[end] === '}' && --depth === 0) return { value: text.slice(start + 1, end), end: end + 1 };
+      }
+      return null;
+    };
+    let output = '';
+    for (let i = 0; i < input.length;) {
+      if (input[i] !== '\\') {
+        output += input[i] === '{' ? '(' : input[i] === '}' ? ')' : input[i];
+        i++;
+        continue;
+      }
+      const command = /^\\([a-zA-Z]+|.)/.exec(input.slice(i));
+      if (!command) {
+        output += input[i++];
+        continue;
+      }
+      const name = command[1];
+      i += command[0].length;
+      if (name === 'frac') {
+        const numerator = group(input, i);
+        const denominator = numerator && group(input, numerator.end);
+        if (numerator && denominator) {
+          const top = latexToPlain(numerator.value).trim();
+          const bottom = latexToPlain(denominator.value).trim();
+          output += top === 'n' ? 'n/' + bottom : '((' + top + ')/(' + bottom + '))';
+          i = denominator.end;
+        } else output += 'frac';
+      } else if (name === 'sqrt') {
+        const radicand = group(input, i);
+        if (radicand) {
+          output += 'sqrt(' + latexToPlain(radicand.value) + ')';
+          i = radicand.end;
+        } else output += 'sqrt';
+      } else if (name === 'cdot' || name === 'times') output += '*';
+      else if (name === 'log' || name === 'ln') {
+        output += 'log';
+        const base = input.slice(i).match(/^\s*_\s*(?:\{[^}]*\}|\d+)/);
+        if (base) i += base[0].length;
+        const next = input.slice(i).match(/^\s*(.)/);
+        if (next && next[1] === 'n') {
+          i += next[0].length;
+          output += '(n)';
+        }
+      } else if (name === '{') output += '(';
+      else if (name === '}') output += ')';
+      else output += name;
+    }
+    return output;
   }
 })();</script>
 <script>
