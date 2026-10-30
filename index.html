@@ -115,8 +115,11 @@
     }
     if (isAsymptotic) {
       html = html.replace(/<textarea id="expressions"[^>]*>[\s\S]*?<\/textarea>/, '<textarea id="expressions" spellcheck="false" placeholder="Enter functions or recurrences in LaTeX"></textarea>');
+      html = html.replace('</textarea>', '</textarea><div id="latex-preview" aria-live="polite"></div>');
+      html = html.replace('</style>', '#latex-preview{min-height:2em;padding:12px 4px;color:#526477;overflow-x:auto}#latex-preview>div{margin:8px 0}</style>');
+      html = html.replace('</head>', '<script>window.MathJax={startup:{typeset:false},chtml:{fontURL:"mathjax-font/woff2",dynamicPrefix:"mathjax-font/dynamic"}};' + '<' + '/script><script defer src="mathjax/tex-mml-chtml.js">' + '<' + '/script></head>');
       html = html.replace(/<button id="(?:analyse|examples)"[^>]*>[\s\S]*?<\/button>/g, '');
-      html = html.replace(/<p class="small">Examples:[\s\S]*?<\/p>/, '<p class="small">Results update as you type. LaTeX input supports fractions, square roots, logarithms, powers, and multiplication. Enter one function or recurrence per line.</p>');
+      html = html.replace(/<p class="small">Examples:[\s\S]*?<\/p>/, '<p class="small">LaTeX is previewed as you type. Complexity analysis supports common function and recurrence forms; unsupported expressions show an error.</p>');
       html = html.replace('function normalize(s){return s.replace(', `function normalize(s){s=(${latexToPlain.toString()})(s);return s.replace(`);
       html = html.replace('function numText(x){return Number(x.toPrecision(10)).toString();}', 'function numText(x){return Number(x.toPrecision(4)).toString();}');
       html = html.replace('function format(g){let factors=[];', 'function format(g,symbolicPower){let factors=[];');
@@ -128,13 +131,14 @@
       html = html.replace('let row=document.createElement(\'tr\'),cell=document.createElement(\'td\');cell.textContent=line;row.append(cell);try{let result=solve(line)', 'let row=document.createElement(\'tr\'),cell=document.createElement(\'td\'),displayLine=normalize(line);cell.textContent=displayLine;row.append(cell);try{let result=solve(line)');
       html = html.replace('title.textContent=`${index+1}. ${line} → O(${bound})`', 'title.textContent=`${index+1}. ${displayLine} → O(${bound})`');
       html = html.replace(/\$\('analyse'\)\.onclick=analyse;\$\('examples'\)\.onclick=\(\)=>\{[\s\S]*?\};analyse\(\);/, '$("expressions").addEventListener("input",analyse);');
+      html = html.replace('</body>', '<script>(function(){const input=document.getElementById("expressions"),preview=document.getElementById("latex-preview"),renderer=document.querySelector("script[src=\\"mathjax/tex-mml-chtml.js\\"]");let request=0;renderer.addEventListener("error",()=>{preview.textContent="LaTeX preview unavailable: MathJax could not be loaded.";});function render(){if(!MathJax.tex2chtmlPromise)return;const current=++request,lines=input.value.split("\\n").map(line=>line.trim()).filter(Boolean);preview.replaceChildren();if(!lines.length)return;MathJax.startup.promise.then(async()=>{for(const line of lines){if(current!==request)return;const row=document.createElement("div"),source=line.replace(/^\\s*(?:\\$\\$|\\\\\\[|\\\\\\()\\s*/,"").replace(/\\s*(?:\\$\\$|\\\\\\]|\\\\\\))\\s*$/,"");try{row.append(await MathJax.tex2chtmlPromise(source,{display:true}));}catch(error){row.textContent="LaTeX preview error: "+error.message;}if(current!==request)return;preview.append(row);}}).catch(error=>{if(current===request)preview.textContent="LaTeX preview unavailable: "+error.message;});}input.addEventListener("input",render);document.addEventListener("DOMContentLoaded",render,{once:true});})();' + '<' + '/script></body>');
     }
     const setup = `<script>(function(){function wrap(buttonId,inputId,shouldClear){const button=document.getElementById(buttonId),input=document.getElementById(inputId);if(!button||!input||typeof button.onclick!=='function')return;const original=button.onclick;button.onclick=function(event){const clear=shouldClear(input.value);original.call(this,event);if(clear)input.value='';};}const number=value=>value.trim()!==''&&Number.isSafeInteger(Number(value));if(document.getElementById('tree'))for(const id of ['insert','remove','find'])wrap(id,'value',number);for(const id of ['radix','bucket']){const start=document.getElementById('start');if(start){const original=start.onclick,input=document.getElementById('values'),error=document.getElementById('error');start.onclick=function(event){const entered=input.value.trim()!=='';original.call(this,event);if(entered&&!error.textContent)input.value='';};}}})();` + '<' + '/script>';
     return html.includes('</body>') ? html.replace('</body>', setup + '</body>') : html.replace('</html>', setup + '</html>');
   }
 
   function latexToPlain(source) {
-    const input = source.replace(/\\left|\\right/g, '').replace(/\\(?:,|;|!|quad|qquad)/g, ' ');
+    const input = source.replace(/^\s*(?:\$\$?|\\\[|\\\()\s*|\s*(?:\$\$?|\\\]|\\\))\s*$/g, '').replace(/\\left|\\right/g, '').replace(/\\(?:,|;|!|quad|qquad)/g, ' ');
     const group = (text, start) => {
       while (/\s/.test(text[start] || '')) start++;
       if (text[start] !== '{') return null;

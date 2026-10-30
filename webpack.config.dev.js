@@ -8,6 +8,10 @@ module.exports = merge(common, {
     liveReload: true,
     hot: true,
     open: true,
-    static: ['./'],
+    static: [
+      './',
+      { directory: './node_modules/mathjax', publicPath: '/mathjax' },
+      { directory: './node_modules/@mathjax/mathjax-newcm-font/chtml', publicPath: '/mathjax-font' },
+    ],
   },
 });
