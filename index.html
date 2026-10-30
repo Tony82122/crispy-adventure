@@ -118,6 +118,13 @@
       html = html.replace(/<button id="(?:analyse|examples)"[^>]*>[\s\S]*?<\/button>/g, '');
       html = html.replace(/<p class="small">Examples:[\s\S]*?<\/p>/, '<p class="small">Results update as you type. LaTeX input supports fractions, square roots, logarithms, powers, and multiplication. Enter one function or recurrence per line.</p>');
       html = html.replace('function normalize(s){return s.replace(', `function normalize(s){s=(${latexToPlain.toString()})(s);return s.replace(`);
+      html = html.replace('function numText(x){return Number(x.toPrecision(10)).toString();}', 'function numText(x){return Number(x.toPrecision(4)).toString();}');
+      html = html.replace('function format(g){let factors=[];', 'function format(g,symbolicPower){let factors=[];');
+      html = html.replace('`n^(${numText(g.p)})`', 'symbolicPower?`n^(${symbolicPower})`:`n^(${numText(g.p)})`');
+      html = html.replace('let c=Math.log(a)/Math.log(b),delta=f.p-c,', 'let c=Math.log(a)/Math.log(b),symbolicPower=Math.abs(c-Math.round(c))<1e-12?null:`log_${b} ${a}`,delta=f.p-c,');
+      html = html.replace('return {g:answer,steps:[', 'return {g:answer,symbolicPower:answer.p===c?symbolicPower:null,steps:[');
+      html = html.replace('format(answer)}).`]', 'format(answer,answer.p===c?symbolicPower:null)}).`]');
+      html = html.replace('let result=solve(line),bound=format(result.g);', 'let result=solve(line),bound=format(result.g,result.symbolicPower);');
       html = html.replace('let row=document.createElement(\'tr\'),cell=document.createElement(\'td\');cell.textContent=line;row.append(cell);try{let result=solve(line)', 'let row=document.createElement(\'tr\'),cell=document.createElement(\'td\'),displayLine=normalize(line);cell.textContent=displayLine;row.append(cell);try{let result=solve(line)');
       html = html.replace('title.textContent=`${index+1}. ${line} → O(${bound})`', 'title.textContent=`${index+1}. ${displayLine} → O(${bound})`');
       html = html.replace(/\$\('analyse'\)\.onclick=analyse;\$\('examples'\)\.onclick=\(\)=>\{[\s\S]*?\};analyse\(\);/, '$("expressions").addEventListener("input",analyse);');
